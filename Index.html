@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Receipt – Exact Replica (Editable)</title>
+  <style>
+    /* Canvas background */
+    html, body { height: 100%; }
+    body { margin: 0; background:#2f2f31; display:grid; place-items:center; padding:16px; }
+
+    /* Small floating controls outside the page so design stays unchanged */
+    .toolbar{ position:fixed; top:14px; right:14px; display:flex; gap:8px; z-index:10; }
+    .btn{ border:1px solid #475569; background:#111827; color:#e5e7eb; padding:8px 12px; border-radius:10px; font-weight:600; cursor:pointer; }
+    .btn:hover{ filter:brightness(1.15); }
+
+    /* Page */
+    .page { width: 820px; height: 1160px; background:#fff; box-shadow: 0 0 0 6px #2f2f31; padding: 36px 42px 40px; box-sizing: border-box; font-family: "Poppins", "Helvetica Neue", Arial, sans-serif; color:#2b2b2b; position: relative; }
+
+    /* Palette (sampled from image) */
+    :root{ --green:#b8d6b6; --line:#d8e5d8; --muted:#7b7f7a; }
+
+    h1.receipt { margin: 0 0 10px 0; font-weight: 300; font-size: 72px; letter-spacing: 0.18em; color:#596258; }
+
+    .date-bar { display:flex; justify-content:flex-end; align-items:center; }
+    .date-pill{ background:var(--green); color:#2e3a2e; font-size:14px; padding:6px 12px; border-radius:2px; font-weight:500; letter-spacing: .02em; display:flex; align-items:center; gap:8px; }
+
+    /* Date input styled like plain text and with calendar icon hidden */
+    .date-input{ border:0; outline:none; background:transparent; font:inherit; color:inherit; padding:0; margin:0; appearance:none; }
+    /* Hide calendar icon (Chromium/WebKit) */
+    .date-input::-webkit-calendar-picker-indicator{ opacity:0; display:none; -webkit-appearance:none; }
+    /* Hide spin buttons (Chromium) */
+    .date-input::-webkit-inner-spin-button{ display:none; }
+    /* Hide clear button (IE/Edge legacy) */
+    .date-input::-ms-clear{ display:none; }
+    /* Firefox: remove native styling */
+    .date-input{ -moz-appearance:textfield; }
+
+    .grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 18px; }
+
+    .label{ font-size:13px; color:var(--muted); letter-spacing:.05em; }
+    .kv{ margin-top:10px; line-height:1.9; font-size:14px; }
+
+    .xpay { margin-top: 10px; font-size:14px; }
+
+    /* Simple inputs that look like plain text to preserve the design */
+    .inline-input { border:0; outline: none; background: transparent; font: inherit; color: inherit; padding: 0; margin: 0; }
+    .inline-input::-webkit-outer-spin-button, .inline-input::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+    .inline-input[type=number]{ -moz-appearance: textfield; }
+
+    /* Rules */
+    .rule { height:1px; background:var(--line); margin:24px 0; }
+    .rule.thick { height:2px; }
+
+    table { width:100%; border-collapse: collapse; font-size:14px; }
+    thead th{ text-align:left; color:#667066; font-size:13px; letter-spacing:.06em; font-weight:600; padding:10px 8px; }
+    tbody td{ padding:14px 8px; }
+    td.right{ text-align:right; }
+    td.center{ text-align:center; }
+    tr.sep td{ border-top:1px solid var(--line); }
+
+    /* Make text-like inputs fill the cell without changing layout */
+    .cell-input { width: 100%; border:0; outline: none; background: transparent; font: inherit; color: inherit; text-align: inherit; }
+
+    /* Totals input that looks like text and aligns right */
+    .money-input{ border:0; outline:none; background:transparent; font:inherit; color:inherit; text-align:right; width:100%; }
+
+    /* Extra empty lines area (now only 2) */
+    .rowline{ height:58px; border-top:1px solid var(--line); }
+
+    /* Bottom area */
+    .bottom{ display:grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items:start; }
+    .qrwrap{ width:170px; border-radius:12px; border:2px solid #e3e6ea; padding:10px; }
+    .qrph{ width:100%; height:170px; border-radius:8px; border:2px dashed #cbd5d8; display:grid; place-items:center; font-size:12px; color:#98a1a6; }
+    .scan{ margin-top:6px; font-size:12px; color:#616a66; }
+    .caption{ margin-top:6px; font-size:11px; color:#616a66; text-align:center; }
+
+    .totals{ justify-self:end; width: 280px; }
+    .totals .row{ display:grid; grid-template-columns: 1fr auto; gap: 12px; padding:6px 0; }
+    .totals .row .label{ font-size:12px; color:#616a66; letter-spacing:.08em; }
+    .totals .row .val{ font-variant-numeric: tabular-nums; }
+    .totals .totalbar{ background:var(--green); padding:8px 10px; border-radius:2px; margin-top:4px; }
+    .totals .totalbar .label{ color:#203020; }
+
+    .thanks{ position:absolute; right:42px; bottom:36px; font-size:28px; letter-spacing:.08em; color:#3b463d; }
+
+    /* Print */
+    @media print{ body{ background:#fff; } .page{ box-shadow:none; } input{ border:0 !important; } .toolbar{ display:none; } }
+  
+
+    /* ——— Mobile (iPhone 13 Pro Max ~428px wide) ——— */
+    @media (max-width: 480px){
+      body{ padding:12px; }
+      .toolbar{ top:auto; bottom:10px; right:10px; flex-wrap:wrap; gap:6px; }
+      .btn{ padding:6px 10px; font-size:12px; border-radius:8px; }
+
+      .page{ width:100%; height:auto; padding:18px 16px 22px; box-shadow:none; }
+      h1.receipt{ font-size:40px; letter-spacing:.14em; }
+      .date-pill{ font-size:12px; padding:4px 8px; }
+
+      .grid-2{ grid-template-columns: 1fr; gap:14px; }
+      .kv{ line-height:1.6; font-size:13px; }
+      .label{ font-size:12px; }
+
+      table{ font-size:12px; display:block; width:100%; overflow-x:auto; }
+      thead th{ padding:8px 6px; font-size:12px; }
+      tbody td{ padding:10px 6px; }
+
+      /* tighten fixed column widths */
+      thead th:nth-child(1){ width:48px !important; }
+      thead th:nth-child(3){ width:70px !important; }
+      thead th:nth-child(4){ width:110px !important; }
+      thead th:nth-child(5){ width:110px !important; }
+
+      .rowline{ height:40px; }
+
+      .bottom{ grid-template-columns: 1fr; gap:16px; }
+      .qrwrap{ width:140px; margin-top:4px; }
+      .qrph{ height:140px; font-size:11px; }
+      .scan{ font-size:11px; }
+      .caption{ font-size:10px; }
+
+      .totals{ width:100%; }
+      .totals .row{ grid-template-columns: 1fr auto; padding:4px 0; }
+      .totals .row .label{ font-size:11px; }
+      .totals .totalbar{ margin-top:2px; }
+
+      .thanks{ position:static; margin-top:18px; font-size:22px; text-align:right; }
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Floating tools outside page so design remains untouched -->
+  <div class="toolbar">
+    <button class="btn" id="addRowBtn">+ Add row</button>
+    <button class="btn" id="removeRowBtn">− Remove row</button>
+    <button class="btn" id="printBtn">🖨️ Print</button>
+    <button class="btn" id="pdfBtn">⬇️ Download PDF</button>
+  </div>
+
+  <main class="page">
+    <h1 class="receipt">RECEIPT</h1>
+    <div class="date-bar">
+      <div class="date-pill">
+        <span>Date:</span>
+        <input id="dateInput" class="date-input" type="date" />
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <section>
+        <div class="label">BILLED TO</div>
+        <div class="kv">
+          Client Name : <input id="clientName" class="inline-input" type="text" value="Mom Vibol" />
+          <br/>
+          Phone: <input id="clientPhone" class="inline-input" type="text" value="+855 78 789 536" />
+        </div>
+      </section>
+      <section>
+        <div class="label">PAYMENT METHOD</div>
+        <div class="xpay">X <input id="paymentMethod" class="inline-input" type="text" value="ABA" /></div>
+      </section>
+    </div>
+
+    <div class="rule"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px;">No.</th>
+          <th>PRODUCT / SERVICE</th>
+          <th style="width:90px;" class="center">QTY</th>
+          <th style="width:140px;" class="right">UNIT PRICE</th>
+          <th style="width:140px;" class="right">TOTAL</th>
+        </tr>
+      </thead>
+      <tbody id="rows">
+        <tr class="sep" data-row="1">
+          <td><input class="cell-input center no" type="text" value="1" /></td>
+          <td><input class="cell-input desc" type="text" value="Water Festival Animation" /></td>
+          <td class="center"><input class="cell-input center qty" type="number" inputmode="numeric" value="1" min="0" /></td>
+          <td class="right"><input class="cell-input right price" type="text" value="$30.00" /></td>
+          <td class="right total">$30.00</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Blank ledger lines to match the picture spacing (now only 2) -->
+    <div class="rowline"></div>
+    <div class="rowline"></div>
+
+    <div class="rule thick"></div>
+
+    <div class="bottom">
+      <div>
+        <div class="scan">Scan. Pay. Done.</div>
+        <div class="qrwrap">
+          <div class="qrph">QR CODE HERE</div>
+        </div>
+        <div class="caption">HONG DALIN</div>
+      </div>
+
+      <div class="totals">
+        <div class="row"><div class="label">SUBTOTAL</div><div class="val" id="subtotal">$30.00</div></div>
+        <div class="row"><div class="label">DEPOSIT</div><div class="val"><input id="depositInput" class="money-input" type="text" value="-$15.00" /></div></div>
+        <div class="totalbar row" style="grid-template-columns: 1fr auto;">
+          <div class="label">TOTAL</div><div class="val" id="grand">$15.00</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="thanks">THANK YOU!</div>
+  </main>
+
+  <!-- Libraries for image snapshot -> PDF download -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <script>
+    // Helpers to keep the design while allowing input
+    const money = n => `$${Number(n||0).toFixed(2)}`;
+    const parseMoney = s => { if (typeof s === 'number') return s; if (!s) return 0; return parseFloat(String(s).replace(/[^0-9.\-]/g, '')) || 0; };
+
+    const tbody = document.getElementById('rows');
+    let rowCount = tbody.querySelectorAll('tr').length;
+
+    function setupRowEvents(tr){
+      const qty = tr.querySelector('.qty');
+      const price = tr.querySelector('.price');
+      function onBlurPrice(){ formatMoneyInput(price, false); recalc(); }
+      function onInput(){ recalc(); }
+      qty.addEventListener('input', onInput);
+      price.addEventListener('input', onInput);
+      price.addEventListener('blur', onBlurPrice);
+      tr.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ const isLast = tr === tbody.lastElementChild; if(isLast) { e.preventDefault(); addRow(); } } });
+    }
+
+    function addRow(data={}){
+      const idx = ++rowCount;
+      const tr = document.createElement('tr');
+      tr.className = 'sep';
+      tr.dataset.row = String(idx);
+      tr.innerHTML = `
+        <td><input class=\"cell-input center no\" type=\"text\" value=\"${data.no ?? ''}\" /></td>
+        <td><input class=\"cell-input desc\" type=\"text\" value=\"${data.desc ?? ''}\" /></td>
+        <td class=\"center\"><input class=\"cell-input center qty\" type=\"number\" inputmode=\"numeric\" min=\"0\" value=\"${data.qty ?? ''}\" /></td>
+        <td class=\"right\"><input class=\"cell-input right price\" type=\"text\" value=\"${data.price ?? ''}\" /></td>
+        <td class=\"right total\">$0.00</td>`;
+      tbody.appendChild(tr);
+      setupRowEvents(tr);
+      recalc();
+      tr.querySelector('.desc').focus();
+    }
+
+    function currentRow(){ const active = document.activeElement; if (!active) return null; return active.closest('tr'); }
+
+    function removeRow(tr){
+      const rows = tbody.querySelectorAll('tr');
+      if (rows.length <= 1) return; // keep at least one row
+      if (!tr) tr = tbody.lastElementChild;
+      if (tr && tr.parentNode === tbody){
+        const nextFocus = tr.previousElementSibling || tr.nextElementSibling;
+        tr.remove();
+        recalc();
+        if (nextFocus){ const inp = nextFocus.querySelector('input'); if (inp) inp.focus(); }
+      }
+    }
+
+    function recalc(){
+      let subtotal = 0;
+      tbody.querySelectorAll('tr').forEach((tr)=>{
+        const qty = parseFloat(tr.querySelector('.qty').value) || 0;
+        const price = parseMoney(tr.querySelector('.price').value);
+        const line = qty * price;
+        subtotal += line;
+        tr.querySelector('.total').textContent = money(line);
+      });
+      document.getElementById('subtotal').textContent = money(subtotal);
+      const depInput = document.getElementById('depositInput');
+      const depAmount = Math.abs(parseMoney(depInput.value));
+      document.getElementById('grand').textContent = money(subtotal - depAmount);
+    }
+
+    function formatMoneyInput(el, negative=false){ const v = Math.abs(parseMoney(el.value)); const formatted = money(v); el.value = negative ? `-${formatted}` : formatted; }
+
+    document.getElementById('depositInput').addEventListener('blur', (e)=>{ formatMoneyInput(e.target, true); recalc(); });
+    document.getElementById('depositInput').addEventListener('input', recalc);
+
+    // Wire up initial row and the add/remove buttons
+    setupRowEvents(tbody.querySelector('tr'));
+    document.getElementById('addRowBtn').addEventListener('click', ()=> addRow());
+    document.getElementById('removeRowBtn').addEventListener('click', ()=> removeRow(currentRow()));
+
+    // Initial calc (format initial price nicely too)
+    tbody.querySelectorAll('.price').forEach(p=>formatMoneyInput(p,false));
+    recalc();
+
+    // === Init current date (Asia/Singapore) for <input type="date"> ===
+    (function initDate(){
+      const now = new Date();
+      const tz = { timeZone: 'Asia/Singapore' };
+      const y = now.toLocaleString('en-US', { year: 'numeric', ...tz });
+      const m = now.toLocaleString('en-US', { month: '2-digit', ...tz });
+      const d = now.toLocaleString('en-US', { day: '2-digit', ...tz });
+      const iso = `${y}-${m}-${d}`; // YYYY-MM-DD
+      const el = document.getElementById('dateInput');
+      if (el) el.value = iso;
+    })();
+
+    // === Print and Download PDF ===
+    document.getElementById('printBtn').addEventListener('click', ()=> window.print());
+    document.getElementById('pdfBtn').addEventListener('click', async () => {
+      const node = document.querySelector('.page');
+      recalc();
+      const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      const ts = new Date().toISOString().slice(0,10);
+      pdf.save(`receipt_${ts}.pdf`);
+    });
+  </script>
+</body>
+</html>
